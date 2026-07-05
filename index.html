@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="すり足" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <title>剣道すり足ランダム指示</title>
+  <style>
+    :root {
+      --bg: #111827;
+      --panel: rgba(255,255,255,0.08);
+      --panel2: rgba(255,255,255,0.13);
+      --text: #f9fafb;
+      --muted: #cbd5e1;
+      --accent: #38bdf8;
+      --danger: #fb7185;
+      --ok: #34d399;
+      --shadow: 0 24px 80px rgba(0,0,0,.35);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Yu Gothic UI", system-ui, sans-serif;
+    }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      transition: background .18s ease;
+    }
+
+    body.dir-forward { background: #0f766e; }
+    body.dir-back { background: #7f1d1d; }
+    body.dir-left { background: #1d4ed8; }
+    body.dir-right { background: #7c3aed; }
+    body.running.idle { background: #111827; }
+
+    .app {
+      width: min(960px, 100%);
+      margin: 0 auto;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 4px 2px 0;
+    }
+
+    h1 {
+      font-size: clamp(20px, 5vw, 34px);
+      line-height: 1.1;
+      margin: 0;
+      letter-spacing: .02em;
+    }
+
+    .status-pill {
+      flex: none;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: .08em;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--panel2);
+      color: var(--muted);
+    }
+
+    .stage {
+      flex: 1;
+      min-height: 265px;
+      display: grid;
+      place-items: center;
+      border-radius: 34px;
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255,255,255,.14);
+      padding: 22px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: -30%;
+      background: radial-gradient(circle at center, rgba(255,255,255,.16), transparent 48%);
+      opacity: .45;
+      pointer-events: none;
+    }
+
+    .direction-wrap {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .arrow {
+      font-size: clamp(82px, 28vw, 220px);
+      line-height: .8;
+      font-weight: 900;
+      text-shadow: 0 16px 45px rgba(0,0,0,.28);
+    }
+
+    .direction {
+      font-size: clamp(54px, 19vw, 154px);
+      line-height: .95;
+      font-weight: 1000;
+      letter-spacing: .04em;
+      text-shadow: 0 16px 45px rgba(0,0,0,.28);
+    }
+
+    .sub {
+      color: rgba(255,255,255,.82);
+      font-weight: 700;
+      font-size: clamp(14px, 3.4vw, 24px);
+      min-height: 1.4em;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel {
+      border-radius: var(--radius);
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,.14);
+      padding: 14px;
+      backdrop-filter: blur(10px);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (min-width: 720px) {
+      .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+      letter-spacing: .04em;
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      width: 100%;
+      appearance: none;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 13px 12px;
+      font: inherit;
+      font-weight: 800;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: rgba(56,189,248,.85);
+      box-shadow: 0 0 0 3px rgba(56,189,248,.18);
+    }
+
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    @media (min-width: 720px) {
+      .checks { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(0,0,0,.20);
+      border: 1px solid rgba(255,255,255,.12);
+      color: var(--text);
+      font-weight: 900;
+      user-select: none;
+    }
+
+    .check input {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border-radius: 8px;
+      accent-color: var(--accent);
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 18px;
+      padding: 17px 16px;
+      color: #08111f;
+      font: inherit;
+      font-weight: 1000;
+      letter-spacing: .04em;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(0,0,0,.22);
+    }
+
+    button:disabled { opacity: .45; cursor: not-allowed; }
+
+    .start { background: var(--ok); }
+    .stop { background: var(--danger); color: white; }
+    .test { background: #fde68a; }
+    .reset { background: #e5e7eb; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      text-align: center;
+    }
+
+    .stat {
+      border-radius: 16px;
+      background: rgba(0,0,0,.18);
+      padding: 12px 8px;
+    }
+
+    .stat b {
+      display: block;
+      font-size: clamp(22px, 6vw, 40px);
+      line-height: 1.1;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    details {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    summary {
+      color: var(--text);
+      font-weight: 900;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body class="idle">
+  <main class="app">
+    <header>
+      <h1>剣道すり足<br>ランダム指示</h1>
+      <div class="status-pill" id="status">停止中</div>
+    </header>
+
+    <section class="stage" aria-live="assertive" aria-atomic="true">
+      <div class="direction-wrap">
+        <div class="arrow" id="arrow">◇</div>
+        <div class="direction" id="direction">待機</div>
+        <div class="sub" id="sub">範囲を設定して開始</div>
+      </div>
+    </section>
+
+    <section class="panel controls">
+      <div class="grid">
+        <div>
+          <label for="minSec">最短秒数</label>
+          <input id="minSec" type="number" min="0.5" max="60" step="0.5" value="2" inputmode="decimal" />
+        </div>
+        <div>
+          <label for="maxSec">最長秒数</label>
+          <input id="maxSec" type="number" min="0.5" max="60" step="0.5" value="5" inputmode="decimal" />
+        </div>
+        <div>
+          <label for="durationMin">練習時間</label>
+          <select id="durationMin">
+            <option value="0">無制限</option>
+            <option value="0.5">30秒</option>
+            <option value="1" selected>1分</option>
+            <option value="2">2分</option>
+            <option value="3">3分</option>
+            <option value="5">5分</option>
+            <option value="10">10分</option>
+          </select>
+        </div>
+        <div>
+          <label for="cueMode">合図</label>
+          <select id="cueMode">
+            <option value="beep-voice" selected>音＋声</option>
+            <option value="beep">音のみ</option>
+            <option value="voice">声のみ</option>
+            <option value="silent">無音</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="checks" aria-label="出現させる方向">
+        <label class="check"><input type="checkbox" data-dir="forward" checked />前</label>
+        <label class="check"><input type="checkbox" data-dir="back" checked />後ろ</label>
+        <label class="check"><input type="checkbox" data-dir="left" checked />左</label>
+        <label class="check"><input type="checkbox" data-dir="right" checked />右</label>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label for="weightMode">方向の偏り</label>
+          <select id="weightMode">
+            <option value="even" selected>均等</option>
+            <option value="frontback">前後多め</option>
+            <option value="noRepeat">同方向連続なし</option>
+          </select>
+        </div>
+        <div>
+          <label for="countdown">開始カウント</label>
+          <select id="countdown">
+            <option value="0">なし</option>
+            <option value="3" selected>3秒</option>
+            <option value="5">5秒</option>
+          </select>
+        </div>
+        <div>
+          <label for="flashMs">表示時間</label>
+          <select id="flashMs">
+            <option value="600">0.6秒</option>
+            <option value="900" selected>0.9秒</option>
+            <option value="1200">1.2秒</option>
+            <option value="1600">1.6秒</option>
+          </select>
+        </div>
+        <div>
+          <label for="volume">音量</label>
+          <select id="volume">
+            <option value="0.25">小</option>
+            <option value="0.5" selected>中</option>
+            <option value="0.85">大</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button class="start" id="startBtn">開始</button>
+        <button class="stop" id="stopBtn" disabled>停止</button>
+        <button class="test" id="testBtn">音テスト</button>
+        <button class="reset" id="resetBtn">リセット</button>
+      </div>
+    </section>
+
+    <section class="panel stats">
+      <div class="stat"><b id="count">0</b><span>合図回数</span></div>
+      <div class="stat"><b id="elapsed">0:00</b><span>経過</span></div>
+      <div class="stat"><b id="next">--</b><span>次まで</span></div>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>iPhoneで使うメモ</summary>
+        <div>
+          Safariで開いて「共有」→「ホーム画面に追加」をするとアプリ風に起動できます。音はiPhoneの仕様上、最初に開始ボタンを押した後から鳴ります。練習中は画面が消えないように、必要なら自動ロックを長めにしてください。
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <script>
+    const dirs = {
+      forward: { label: "前", arrow: "↑", cls: "dir-forward", voice: "まえ", freq: 880 },
+      back: { label: "後ろ", arrow: "↓", cls: "dir-back", voice: "うしろ", freq: 330 },
+      left: { label: "左", arrow: "←", cls: "dir-left", voice: "ひだり", freq: 550 },
+      right: { label: "右", arrow: "→", cls: "dir-right", voice: "みぎ", freq: 660 }
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const body = document.body;
+    const arrowEl = $("arrow");
+    const directionEl = $("direction");
+    const subEl = $("sub");
+    const statusEl = $("status");
+    const startBtn = $("startBtn");
+    const stopBtn = $("stopBtn");
+    const testBtn = $("testBtn");
+    const resetBtn = $("resetBtn");
+
+    let running = false;
+    let timer = null;
+    let ticker = null;
+    let flashTimer = null;
+    let audioCtx = null;
+    let wakeLock = null;
+    let startedAt = 0;
+    let nextAt = 0;
+    let endAt = 0;
+    let cueCount = 0;
+    let lastDir = null;
+
+    function num(id) { return Number($(id).value); }
+    function selected(id) { return $(id).value; }
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+    function fmt(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    function clearTimers() {
+      if (timer) clearTimeout(timer);
+      if (ticker) clearInterval(ticker);
+      if (flashTimer) clearTimeout(flashTimer);
+      timer = ticker = flashTimer = null;
+    }
+
+    function setStage(state, message = "") {
+      body.className = state ? `running ${state}` : "idle";
+      subEl.textContent = message;
+    }
+
+    async function ensureAudio() {
+      if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (Ctx) audioCtx = new Ctx();
+      }
+      if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
+    }
+
+    function beep(freq = 660, ms = 120) {
+      if (!audioCtx) return;
+      const volume = Number(selected("volume"));
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(volume, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + ms / 1000);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + ms / 1000 + 0.03);
+    }
+
+    function speak(text) {
+      if (!('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = "ja-JP";
+        u.rate = 1.45;
+        u.pitch = 1.05;
+        u.volume = Number(selected("volume"));
+        window.speechSynthesis.speak(u);
+      } catch (_) {}
+    }
+
+    function cueSound(dirKey) {
+      const mode = selected("cueMode");
+      const d = dirs[dirKey];
+      if (mode === "beep" || mode === "beep-voice") beep(d.freq, 125);
+      if (mode === "voice" || mode === "beep-voice") {
+        setTimeout(() => speak(d.voice), mode === "beep-voice" ? 80 : 0);
+      }
+    }
+
+    function enabledDirs() {
+      const boxes = [...document.querySelectorAll('input[data-dir]')];
+      return boxes.filter(b => b.checked).map(b => b.dataset.dir);
+    }
+
+    function chooseDir() {
+      let choices = enabledDirs();
+      if (choices.length === 0) {
+        document.querySelector('input[data-dir="forward"]').checked = true;
+        choices = ["forward"];
+      }
+
+      const mode = selected("weightMode");
+      let pool = [...choices];
+
+      if (mode === "frontback") {
+        pool = [];
+        for (const c of choices) {
+          const w = (c === "forward" || c === "back") ? 3 : 1;
+          for (let i = 0; i < w; i++) pool.push(c);
+        }
+      }
+
+      if (mode === "noRepeat" && choices.length > 1) {
+        pool = pool.filter(c => c !== lastDir);
+      }
+
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function randomDelayMs() {
+      let min = clamp(num("minSec"), 0.5, 60);
+      let max = clamp(num("maxSec"), 0.5, 60);
+      if (max < min) [min, max] = [max, min];
+      $("minSec").value = min;
+      $("maxSec").value = max;
+      return Math.round((min + Math.random() * (max - min)) * 1000);
+    }
+
+    function updateStats() {
+      $("count").textContent = cueCount;
+      $("elapsed").textContent = running ? fmt(Date.now() - startedAt) : "0:00";
+      $("next").textContent = running ? Math.ceil(Math.max(0, nextAt - Date.now()) / 1000) + "s" : "--";
+      if (running && endAt && Date.now() >= endAt) stop("終了");
+    }
+
+    function scheduleNext() {
+      if (!running) return;
+      const delay = randomDelayMs();
+      nextAt = Date.now() + delay;
+      updateStats();
+      timer = setTimeout(fireCue, delay);
+    }
+
+    function fireCue() {
+      if (!running) return;
+      if (flashTimer) {
+        clearTimeout(flashTimer);
+        flashTimer = null;
+      }
+      if (endAt && Date.now() >= endAt) return stop("終了");
+
+      const key = chooseDir();
+      const d = dirs[key];
+      lastDir = key;
+      cueCount += 1;
+      arrowEl.textContent = d.arrow;
+      directionEl.textContent = d.label;
+      statusEl.textContent = "練習中";
+      setStage(d.cls, "すり足！");
+      cueSound(key);
+      updateStats();
+
+      const flash = Number(selected("flashMs"));
+      flashTimer = setTimeout(() => {
+        if (!running) return;
+        arrowEl.textContent = "・";
+        directionEl.textContent = "待機";
+        setStage("idle", "次の合図を待機");
+      }, flash);
+
+      scheduleNext();
+    }
+
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (_) { wakeLock = null; }
+    }
+
+    async function releaseWakeLock() {
+      try {
+        if (wakeLock) await wakeLock.release();
+      } catch (_) {}
+      wakeLock = null;
+    }
+
+    async function countdownThenStart() {
+      let c = Number(selected("countdown"));
+      if (c <= 0) return beginLoop();
+      statusEl.textContent = "準備";
+      arrowEl.textContent = "◇";
+      directionEl.textContent = String(c);
+      setStage("idle", "構えてください");
+      beep(440, 90);
+      const int = setInterval(() => {
+        c -= 1;
+        if (!running) return clearInterval(int);
+        if (c <= 0) {
+          clearInterval(int);
+          beep(880, 160);
+          beginLoop();
+        } else {
+          directionEl.textContent = String(c);
+          beep(440, 90);
+        }
+      }, 1000);
+    }
+
+    function beginLoop() {
+      if (!running) return;
+      arrowEl.textContent = "・";
+      directionEl.textContent = "待機";
+      statusEl.textContent = "練習中";
+      setStage("idle", "次の合図を待機");
+      scheduleNext();
+    }
+
+    async function start() {
+      if (running) return;
+      await ensureAudio();
+      running = true;
+      cueCount = 0;
+      lastDir = null;
+      startedAt = Date.now();
+      const minutes = Number(selected("durationMin"));
+      endAt = minutes > 0 ? startedAt + minutes * 60 * 1000 : 0;
+      clearTimers();
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      await requestWakeLock();
+      ticker = setInterval(updateStats, 250);
+      updateStats();
+      countdownThenStart();
+    }
+
+    function stop(msg = "停止") {
+      running = false;
+      clearTimers();
+      releaseWakeLock();
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      statusEl.textContent = msg;
+      arrowEl.textContent = "◇";
+      directionEl.textContent = msg;
+      setStage(null, msg === "終了" ? "お疲れさまでした" : "範囲を設定して開始");
+      $("next").textContent = "--";
+    }
+
+    function reset() {
+      stop("停止中");
+      cueCount = 0;
+      $("count").textContent = "0";
+      $("elapsed").textContent = "0:00";
+      arrowEl.textContent = "◇";
+      directionEl.textContent = "待機";
+      subEl.textContent = "範囲を設定して開始";
+      statusEl.textContent = "停止中";
+    }
+
+    startBtn.addEventListener("click", start);
+    stopBtn.addEventListener("click", () => stop("停止"));
+    resetBtn.addEventListener("click", reset);
+    testBtn.addEventListener("click", async () => {
+      await ensureAudio();
+      beep(660, 120);
+      setTimeout(() => speak("まえ"), 100);
+    });
+
+    document.addEventListener("visibilitychange", async () => {
+      if (document.visibilityState === "visible" && running) {
+        await requestWakeLock();
+      }
+    });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
