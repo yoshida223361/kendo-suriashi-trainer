@@ -52,42 +52,16 @@
     .app {
       width: min(960px, 100%);
       margin: 0 auto;
-      padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+      padding: max(8px, env(safe-area-inset-top)) 12px max(24px, env(safe-area-inset-bottom));
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-    }
-
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 4px 2px 0;
-    }
-
-    h1 {
-      font-size: clamp(20px, 5vw, 34px);
-      line-height: 1.1;
-      margin: 0;
-      letter-spacing: .02em;
-    }
-
-    .status-pill {
-      flex: none;
-      font-weight: 800;
-      font-size: 12px;
-      letter-spacing: .08em;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: var(--panel2);
-      color: var(--muted);
+      gap: 10px;
     }
 
     .stage {
       flex: 1;
-      min-height: 265px;
+      min-height: 530px;
       display: grid;
       place-items: center;
       border-radius: 34px;
@@ -151,7 +125,7 @@
       border-radius: var(--radius);
       background: var(--panel);
       border: 1px solid rgba(255,255,255,.14);
-      padding: 14px;
+      padding: 12px;
       backdrop-filter: blur(10px);
     }
 
@@ -192,38 +166,6 @@
       box-shadow: 0 0 0 3px rgba(56,189,248,.18);
     }
 
-    .checks {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    @media (min-width: 720px) {
-      .checks { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    }
-
-    .check {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px;
-      border-radius: 16px;
-      background: rgba(0,0,0,.20);
-      border: 1px solid rgba(255,255,255,.12);
-      color: var(--text);
-      font-weight: 900;
-      user-select: none;
-    }
-
-    .check input {
-      width: 22px;
-      height: 22px;
-      padding: 0;
-      border-radius: 8px;
-      accent-color: var(--accent);
-    }
-
     .buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -233,7 +175,7 @@
     button {
       border: 0;
       border-radius: 18px;
-      padding: 17px 16px;
+      padding: 22px 16px;
       color: #08111f;
       font: inherit;
       font-weight: 1000;
@@ -294,11 +236,6 @@
 </head>
 <body class="idle">
   <main class="app">
-    <header>
-      <h1>剣道すり足<br>ランダム指示</h1>
-      <div class="status-pill" id="status">停止中</div>
-    </header>
-
     <section class="stage" aria-live="assertive" aria-atomic="true">
       <div class="direction-wrap">
         <div class="arrow" id="arrow">◇</div>
@@ -308,6 +245,13 @@
     </section>
 
     <section class="panel controls">
+      <div class="buttons">
+        <button class="start" id="startBtn">開始</button>
+        <button class="stop" id="stopBtn" disabled>停止</button>
+        <button class="test" id="testBtn">音テスト</button>
+        <button class="reset" id="resetBtn">リセット</button>
+      </div>
+
       <div class="grid">
         <div>
           <label for="minSec">最短秒数</label>
@@ -332,19 +276,10 @@
         <div>
           <label for="cueMode">合図</label>
           <select id="cueMode">
-            <option value="beep-voice" selected>音＋声</option>
-            <option value="beep">音のみ</option>
-            <option value="voice">声のみ</option>
-            <option value="silent">無音</option>
+            <option value="sound" selected>音あり</option>
+            <option value="silent">音なし</option>
           </select>
         </div>
-      </div>
-
-      <div class="checks" aria-label="出現させる方向">
-        <label class="check"><input type="checkbox" data-dir="forward" checked />前</label>
-        <label class="check"><input type="checkbox" data-dir="back" checked />後ろ</label>
-        <label class="check"><input type="checkbox" data-dir="left" checked />左</label>
-        <label class="check"><input type="checkbox" data-dir="right" checked />右</label>
       </div>
 
       <div class="grid">
@@ -362,6 +297,7 @@
             <option value="0">なし</option>
             <option value="3" selected>3秒</option>
             <option value="5">5秒</option>
+            <option value="10">10秒</option>
           </select>
         </div>
         <div>
@@ -382,13 +318,6 @@
           </select>
         </div>
       </div>
-
-      <div class="buttons">
-        <button class="start" id="startBtn">開始</button>
-        <button class="stop" id="stopBtn" disabled>停止</button>
-        <button class="test" id="testBtn">音テスト</button>
-        <button class="reset" id="resetBtn">リセット</button>
-      </div>
     </section>
 
     <section class="panel stats">
@@ -399,7 +328,7 @@
 
     <section class="panel">
       <details>
-        <summary>iPhoneで使うメモ</summary>
+        <summary>iPhone向けTips</summary>
         <div>
           Safariで開いて「共有」→「ホーム画面に追加」をするとアプリ風に起動できます。音はiPhoneの仕様上、最初に開始ボタンを押した後から鳴ります。練習中は画面が消えないように、必要なら自動ロックを長めにしてください。
         </div>
@@ -409,10 +338,10 @@
 
   <script>
     const dirs = {
-      forward: { label: "前", arrow: "↑", cls: "dir-forward", voice: "まえ", freq: 880 },
-      back: { label: "後ろ", arrow: "↓", cls: "dir-back", voice: "うしろ", freq: 330 },
-      left: { label: "左", arrow: "←", cls: "dir-left", voice: "ひだり", freq: 550 },
-      right: { label: "右", arrow: "→", cls: "dir-right", voice: "みぎ", freq: 660 }
+      forward: { label: "前", arrow: "↑", cls: "dir-forward" },
+      back: { label: "後ろ", arrow: "↓", cls: "dir-back" },
+      left: { label: "左", arrow: "←", cls: "dir-left" },
+      right: { label: "右", arrow: "→", cls: "dir-right" }
     };
 
     const $ = (id) => document.getElementById(id);
@@ -420,7 +349,7 @@
     const arrowEl = $("arrow");
     const directionEl = $("direction");
     const subEl = $("sub");
-    const statusEl = $("status");
+    function setStatus(_) {}
     const startBtn = $("startBtn");
     const stopBtn = $("stopBtn");
     const testBtn = $("testBtn");
@@ -469,56 +398,44 @@
       if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
     }
 
-    function beep(freq = 660, ms = 120) {
+    function buzzer(ms = 720) {
       if (!audioCtx) return;
       const volume = Number(selected("volume"));
       const now = audioCtx.currentTime;
       const osc = audioCtx.createOscillator();
+      const lfo = audioCtx.createOscillator();
+      const lfoGain = audioCtx.createGain();
       const gain = audioCtx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, now);
+
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(185, now);
+      lfo.type = "square";
+      lfo.frequency.setValueAtTime(22, now);
+      lfoGain.gain.setValueAtTime(18, now);
+      lfo.connect(lfoGain).connect(osc.frequency);
+
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(volume, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), now + 0.025);
+      gain.gain.setValueAtTime(Math.max(0.001, volume), now + ms / 1000 - 0.04);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + ms / 1000);
+
       osc.connect(gain).connect(audioCtx.destination);
       osc.start(now);
+      lfo.start(now);
       osc.stop(now + ms / 1000 + 0.03);
+      lfo.stop(now + ms / 1000 + 0.03);
     }
 
-    function speak(text) {
-      if (!('speechSynthesis' in window)) return;
-      try {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = "ja-JP";
-        u.rate = 1.45;
-        u.pitch = 1.05;
-        u.volume = Number(selected("volume"));
-        window.speechSynthesis.speak(u);
-      } catch (_) {}
-    }
-
-    function cueSound(dirKey) {
-      const mode = selected("cueMode");
-      const d = dirs[dirKey];
-      if (mode === "beep" || mode === "beep-voice") beep(d.freq, 125);
-      if (mode === "voice" || mode === "beep-voice") {
-        setTimeout(() => speak(d.voice), mode === "beep-voice" ? 80 : 0);
-      }
+    function cueSound(ms = 720) {
+      if (selected("cueMode") !== "silent") buzzer(ms);
     }
 
     function enabledDirs() {
-      const boxes = [...document.querySelectorAll('input[data-dir]')];
-      return boxes.filter(b => b.checked).map(b => b.dataset.dir);
+      return ["forward", "back", "left", "right"];
     }
 
     function chooseDir() {
       let choices = enabledDirs();
-      if (choices.length === 0) {
-        document.querySelector('input[data-dir="forward"]').checked = true;
-        choices = ["forward"];
-      }
-
       const mode = selected("weightMode");
       let pool = [...choices];
 
@@ -575,9 +492,9 @@
       cueCount += 1;
       arrowEl.textContent = d.arrow;
       directionEl.textContent = d.label;
-      statusEl.textContent = "練習中";
+      setStatus("練習中");
       setStage(d.cls, "すり足！");
-      cueSound(key);
+      cueSound(720);
       updateStats();
 
       const flash = Number(selected("flashMs"));
@@ -609,21 +526,21 @@
     async function countdownThenStart() {
       let c = Number(selected("countdown"));
       if (c <= 0) return beginLoop();
-      statusEl.textContent = "準備";
+      setStatus("準備");
       arrowEl.textContent = "◇";
       directionEl.textContent = String(c);
       setStage("idle", "構えてください");
-      beep(440, 90);
+      cueSound(130);
       const int = setInterval(() => {
         c -= 1;
         if (!running) return clearInterval(int);
         if (c <= 0) {
           clearInterval(int);
-          beep(880, 160);
+          cueSound(220);
           beginLoop();
         } else {
           directionEl.textContent = String(c);
-          beep(440, 90);
+          cueSound(130);
         }
       }, 1000);
     }
@@ -632,7 +549,7 @@
       if (!running) return;
       arrowEl.textContent = "・";
       directionEl.textContent = "待機";
-      statusEl.textContent = "練習中";
+      setStatus("練習中");
       setStage("idle", "次の合図を待機");
       scheduleNext();
     }
@@ -661,7 +578,7 @@
       releaseWakeLock();
       startBtn.disabled = false;
       stopBtn.disabled = true;
-      statusEl.textContent = msg;
+      setStatus(msg);
       arrowEl.textContent = "◇";
       directionEl.textContent = msg;
       setStage(null, msg === "終了" ? "お疲れさまでした" : "範囲を設定して開始");
@@ -676,7 +593,7 @@
       arrowEl.textContent = "◇";
       directionEl.textContent = "待機";
       subEl.textContent = "範囲を設定して開始";
-      statusEl.textContent = "停止中";
+      setStatus("停止中");
     }
 
     startBtn.addEventListener("click", start);
@@ -684,8 +601,7 @@
     resetBtn.addEventListener("click", reset);
     testBtn.addEventListener("click", async () => {
       await ensureAudio();
-      beep(660, 120);
-      setTimeout(() => speak("まえ"), 100);
+      buzzer(720);
     });
 
     document.addEventListener("visibilitychange", async () => {
