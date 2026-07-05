@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kendo-suriashi-trainer-v2';
+const CACHE_NAME = 'kendo-suriashi-trainer-v3';
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './apple-touch-icon.png'];
 
 self.addEventListener('install', event => {

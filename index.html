@@ -47,6 +47,8 @@
     body.dir-back { background: #7f1d1d; }
     body.dir-left { background: #1d4ed8; }
     body.dir-right { background: #7c3aed; }
+    body.state-start { background: #d97706; }
+    body.state-end { background: #059669; }
     body.running.idle { background: #111827; }
 
     .app {
@@ -398,36 +400,78 @@
       if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
     }
 
-    function buzzer(ms = 720) {
-      if (!audioCtx) return;
-      const volume = Number(selected("volume"));
-      const now = audioCtx.currentTime;
-      const osc = audioCtx.createOscillator();
-      const lfo = audioCtx.createOscillator();
-      const lfoGain = audioCtx.createGain();
-      const gain = audioCtx.createGain();
-
-      osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(185, now);
-      lfo.type = "square";
-      lfo.frequency.setValueAtTime(22, now);
-      lfoGain.gain.setValueAtTime(18, now);
-      lfo.connect(lfoGain).connect(osc.frequency);
-
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), now + 0.025);
-      gain.gain.setValueAtTime(Math.max(0.001, volume), now + ms / 1000 - 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + ms / 1000);
-
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start(now);
-      lfo.start(now);
-      osc.stop(now + ms / 1000 + 0.03);
-      lfo.stop(now + ms / 1000 + 0.03);
+    function makeNoiseBuffer(seconds) {
+      const length = Math.max(1, Math.floor(audioCtx.sampleRate * seconds));
+      const buffer = audioCtx.createBuffer(1, length, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+      return buffer;
     }
 
-    function cueSound(ms = 720) {
-      if (selected("cueMode") !== "silent") buzzer(ms);
+    function whistle(ms = 360) {
+      if (!audioCtx) return;
+      const duration = ms / 1000;
+      const volume = Number(selected("volume"));
+      const now = audioCtx.currentTime;
+      const end = now + duration;
+      const master = audioCtx.createGain();
+      const toneGain = audioCtx.createGain();
+      const noiseGain = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
+      const lfo = audioCtx.createOscillator();
+      const lfoGain = audioCtx.createGain();
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const noise = audioCtx.createBufferSource();
+
+      const peak = Math.max(0.001, volume * 0.72);
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(peak, now + 0.025);
+      master.gain.setValueAtTime(peak, Math.max(now + 0.04, end - 0.07));
+      master.gain.exponentialRampToValueAtTime(0.0001, end);
+
+      toneGain.gain.setValueAtTime(0.95, now);
+      noiseGain.gain.setValueAtTime(0.08, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.018, now + Math.min(duration * 0.5, 0.28));
+
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(3350, now);
+      filter.Q.setValueAtTime(12, now);
+
+      lfo.type = "sine";
+      lfo.frequency.setValueAtTime(7.5, now);
+      lfoGain.gain.setValueAtTime(45, now);
+
+      osc1.type = "sine";
+      osc2.type = "sine";
+      osc1.frequency.setValueAtTime(2850, now);
+      osc1.frequency.linearRampToValueAtTime(3120, now + Math.min(0.09, duration * 0.25));
+      osc2.frequency.setValueAtTime(3560, now);
+      osc2.frequency.linearRampToValueAtTime(3820, now + Math.min(0.09, duration * 0.25));
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc1.frequency);
+      lfoGain.connect(osc2.frequency);
+      osc1.connect(toneGain);
+      osc2.connect(toneGain);
+      toneGain.connect(master);
+
+      noise.buffer = makeNoiseBuffer(duration + 0.08);
+      noise.connect(filter).connect(noiseGain).connect(master);
+      master.connect(audioCtx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      lfo.start(now);
+      noise.start(now);
+      osc1.stop(end + 0.03);
+      osc2.stop(end + 0.03);
+      lfo.stop(end + 0.03);
+      noise.stop(end + 0.03);
+    }
+
+    function cueSound(ms = 360) {
+      if (selected("cueMode") !== "silent") whistle(ms);
     }
 
     function enabledDirs() {
@@ -494,7 +538,7 @@
       directionEl.textContent = d.label;
       setStatus("練習中");
       setStage(d.cls, "すり足！");
-      cueSound(720);
+      cueSound(360);
       updateStats();
 
       const flash = Number(selected("flashMs"));
@@ -525,7 +569,7 @@
 
     async function countdownThenStart() {
       let c = Number(selected("countdown"));
-      if (c <= 0) return beginLoop();
+      if (c <= 0) return showStartCue();
       setStatus("準備");
       arrowEl.textContent = "◇";
       directionEl.textContent = String(c);
@@ -536,13 +580,23 @@
         if (!running) return clearInterval(int);
         if (c <= 0) {
           clearInterval(int);
-          cueSound(220);
-          beginLoop();
+          showStartCue();
         } else {
           directionEl.textContent = String(c);
           cueSound(130);
         }
       }, 1000);
+    }
+
+    function showStartCue() {
+      if (!running) return;
+      clearTimeout(timer);
+      arrowEl.textContent = "▶";
+      directionEl.textContent = "開始";
+      setStatus("開始");
+      setStage("state-start", "ピーーー！");
+      cueSound(1050);
+      timer = setTimeout(beginLoop, 850);
     }
 
     function beginLoop() {
@@ -573,15 +627,17 @@
     }
 
     function stop(msg = "停止") {
+      const finished = msg === "終了";
       running = false;
       clearTimers();
       releaseWakeLock();
       startBtn.disabled = false;
       stopBtn.disabled = true;
       setStatus(msg);
-      arrowEl.textContent = "◇";
+      arrowEl.textContent = finished ? "■" : "◇";
       directionEl.textContent = msg;
-      setStage(null, msg === "終了" ? "お疲れさまでした" : "範囲を設定して開始");
+      setStage(finished ? "state-end" : null, finished ? "ピーーー！ お疲れさまでした" : "範囲を設定して開始");
+      if (finished) cueSound(1250);
       $("next").textContent = "--";
     }
 
@@ -601,7 +657,7 @@
     resetBtn.addEventListener("click", reset);
     testBtn.addEventListener("click", async () => {
       await ensureAudio();
-      buzzer(720);
+      whistle(1050);
     });
 
     document.addEventListener("visibilitychange", async () => {
